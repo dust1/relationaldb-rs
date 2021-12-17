@@ -1,2 +1,4 @@
-mod error;
 mod storage;
+
+pub mod error;
+pub mod server;
