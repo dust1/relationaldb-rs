@@ -9,27 +9,27 @@ use crate::{error::Result, storage::PAGE_SIZE};
 
 /// Page Device, if i have other implement about read/write page, i can implement it
 /// e.g. network data read and write
-pub trait PageDevice {
-    fn write_page(&self, page_id: u32, page_data: &[u8; PAGE_SIZE]) -> Result<usize>;
+pub trait DiskManager {
+    fn write_page(&self, page_id: usize, page_data: &[u8; PAGE_SIZE]) -> Result<usize>;
 
-    fn read_page(&self, page_id: u32, page_data: &mut [u8; PAGE_SIZE]) -> Result<usize>;
+    fn read_page(&self, page_id: usize, page_data: &mut [u8; PAGE_SIZE]) -> Result<usize>;
 }
 
-pub struct DiskManager {
+pub struct PageDevice {
     file: Mutex<File>,
 }
 
-impl DiskManager {
-    pub fn open(dir: &Path) -> Result<DiskManager> {
+impl PageDevice {
+    pub fn open(dir: &Path) -> Result<Self> {
         create_dir_all(dir)?;
         let file =
             OpenOptions::new().read(true).write(true).create(true).open(dir.join("mydb.db"))?;
-        Ok(DiskManager { file: Mutex::new(file) })
+        Ok(Self { file: Mutex::new(file) })
     }
 }
 
-impl PageDevice for DiskManager {
-    fn write_page(&self, page_id: u32, page_data: &[u8; PAGE_SIZE]) -> Result<usize> {
+impl DiskManager for PageDevice {
+    fn write_page(&self, page_id: usize, page_data: &[u8; PAGE_SIZE]) -> Result<usize> {
         let offset = page_id as u64 * PAGE_SIZE as u64;
         let mut file = self.file.lock()?;
         let metadata = file.metadata()?;
@@ -47,7 +47,7 @@ impl PageDevice for DiskManager {
         Ok(PAGE_SIZE)
     }
 
-    fn read_page(&self, page_id: u32, page_data: &mut [u8; PAGE_SIZE]) -> Result<usize> {
+    fn read_page(&self, page_id: usize, page_data: &mut [u8; PAGE_SIZE]) -> Result<usize> {
         let offset = page_id as u64 * PAGE_SIZE as u64;
         let mut file = self.file.lock()?;
         let metadata = file.metadata()?;
@@ -65,17 +65,16 @@ impl PageDevice for DiskManager {
 mod test {
     use super::{DiskManager, PageDevice};
     use crate::{error::Result, storage::PAGE_SIZE};
-    use tempfile::tempdir;
 
     struct Test {
-        page_id: u32,
+        page_id: usize,
         data: Vec<u8>,
     }
 
     #[test]
     fn test() -> Result<()> {
         let dir = tempdir::TempDir::new("mydb")?;
-        let page_device: Box<dyn PageDevice> = Box::new(DiskManager::open(dir.as_ref())?);
+        let page_device: Box<dyn DiskManager> = Box::new(PageDevice::open(dir.as_ref())?);
         let tests = [Test { page_id: 0, data: Vec::from("Hello World!!".as_bytes()) }];
 
         for test in tests {
@@ -83,7 +82,7 @@ mod test {
             let data_len = data.len();
             let page_id = test.page_id;
             let mut buf = [0u8; PAGE_SIZE];
-            let mut write_buf = &mut buf[..data_len];
+            let write_buf = &mut buf[..data_len];
             write_buf.copy_from_slice(&data);
             let write_size = page_device.write_page(page_id, &buf)?;
             assert_eq!(PAGE_SIZE, write_size, "write size test fail!!");

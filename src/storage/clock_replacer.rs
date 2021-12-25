@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 #[derive(Debug)]
 pub struct ClockReplacer {
-    queue: VecDeque<(bool, u32)>,
+    queue: VecDeque<(bool, usize)>,
     num_pages: usize,
 }
 
@@ -11,7 +11,7 @@ impl ClockReplacer {
         Self { queue: VecDeque::new(), num_pages }
     }
 
-    pub fn un_pin(&mut self, frame_id: u32) {
+    pub fn un_pin(&mut self, frame_id: usize) {
         for q in &mut self.queue {
             if q.1 == frame_id {
                 q.0 = true;
@@ -30,13 +30,13 @@ impl ClockReplacer {
         self.queue.push_back((true, frame_id));
     }
 
-    pub fn pin(&mut self, frame_id: u32) {
+    pub fn pin(&mut self, frame_id: usize) {
         if let Some((idx, _)) = self.queue.iter().enumerate().find(|(_, item)| frame_id == item.1) {
             self.queue.drain(idx..=idx);
         }
     }
 
-    pub fn victim(&mut self) -> Option<u32> {
+    pub fn victim(&mut self) -> Option<usize> {
         if self.queue.is_empty() {
             return None;
         }
